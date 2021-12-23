@@ -1,0 +1,25 @@
+pytz==2021.3  # https://github.com/stub42/pytz
+argon2-cffi==21.1.0  # https://github.com/hynek/argon2_cffi
+psutil==5.8.0
+# Django
+# ------------------------------------------------------------------------------
+django==3.2.9  # https://www.djangoproject.com/
+django-environ==0.8.1  # https://github.com/joke2k/django-environ
+django-model-utils==4.2.0  # https://github.com/jazzband/django-model-utils
+django-log-request-id==1.7.0  # https://github.com/dabapps/django-log-request-id
+django-health-check==3.16.4  # https://github.com/KristianOellegaard/django-health-check
+django-cors-headers==3.10.0  # https://github.com/adamchainz/django-cors-headers
+django-extensions==3.1.5  # https://github.com/django-extensions/django-extensions
+
+# Django REST Framework
+djangorestframework==3.12.4  # https://github.com/encode/django-rest-framework
+djangorestframework-simplejwt==5.0.0 # https://github.com/jazzband/djangorestframework-simplejwt
+
+# internal libraries
+django-filter==21.1
+
+PyJWT==2.1.0 # added because djangorestframework-simplejwt with pyJWT==2.2.0 gets TypeError: decode() got an unexpected keyword argument 'verify'
+
+# Swagger
+# ------------------------------------------------------------------------------
+drf-spectacular==0.21.0  # https://github.com/tfranzel/drf-spectacular

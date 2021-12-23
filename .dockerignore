@@ -1,0 +1,14 @@
+.*
+!.coveragerc
+!.env
+!.pylintrc
+celerybeat.pid
+*.md
+*.yaml
+**/*.git
+*.rst
+*.yml
+**/Makefile
+etc/*
+!etc/Dockerfile
+__pycache__
