@@ -11,5 +11,4 @@ app_name = "api"
 urlpatterns = router.urls
 
 urlpatterns += [
-    path("core/", include("apps.core.api.urls", namespace="core_api")),
 ]

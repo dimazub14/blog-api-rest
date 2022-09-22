@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import include, path, re_path
+from django.urls import include, path
 
 urlpatterns = [
     path("_status/", include("health_check.urls")),
@@ -10,6 +10,7 @@ urlpatterns = [
 # API URLS
 urlpatterns += [
     # API base url
+    path("api/v1/", include("config.api_router")),
 ]
 
 if not settings.DISABLE_ADMIN_PANEL:
@@ -22,19 +23,12 @@ if settings.DEBUG:
 
         urlpatterns = [path("__debug__/", include(debug_toolbar.urls))] + urlpatterns
 
-        if settings.MEDIA_URL.startswith("/"):
-            urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
-if settings.SWAGGER_ENABLED:
-    # Swagger
-    from drf_spectacular.views import (
-        SpectacularAPIView,
-        SpectacularRedocView,
-        SpectacularSwaggerView,
-    )
+    from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
     urlpatterns += [
-        path('api/schema/', SpectacularAPIView.as_view(), name='schema'), # Optional UI:
-        path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-        path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+        path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+        path("api/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     ]
+
+    if settings.MEDIA_URL.startswith("/"):
+        urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

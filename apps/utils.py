@@ -1,33 +1,74 @@
 import functools
 import time
+from typing import Any, Dict, List, Optional, Union
 
 from django.db import connection, reset_queries
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    _SerializerType,
+    extend_schema,
+)
+
+class SwaggerWrapper:
+    """Initial swagger wrapper for `extend_schema`"""
+
+    operation_id: Optional[str] = None
+    parameters: Optional[List[Union[OpenApiParameter, _SerializerType]]] = None
+    request: Any
+    responses: Any
+    auth: Optional[List[str]] = None
+    description: Optional[str] = None
+    summary: Optional[str] = None
+    deprecated: Optional[bool] = None
+    tags: Optional[List[str]] = None
+    filters: Optional[bool] = None
+    exclude: bool = False
+    operation: Optional[Dict[str, Any]] = None
+    methods: Optional[List[str]] = None
+    versions: Optional[List[str]] = None
+    examples: Optional[List[OpenApiExample]] = None
+    extensions: Optional[Dict[str, Any]] = None
+
+    @classmethod
+    def extend_schema(cls, func):
+        """Re-declared function"""
+
+        @extend_schema(
+            operation_id=cls.operation_id,
+            parameters=cls.parameters,
+            request=cls.request,
+            responses=cls.responses,
+            auth=cls.auth,
+            description=cls.description,
+            summary=cls.summary,
+            deprecated=cls.deprecated,
+            tags=cls.tags,
+            filters=cls.filters,
+            exclude=cls.exclude,
+            operation=cls.operation,
+            methods=cls.methods,
+            versions=cls.versions,
+            examples=cls.examples,
+            extensions=cls.extensions,
+        )
+        def decorator(*args, **kwargs):
+            """Wrapper function"""
+            return func(*args, **kwargs)
+
+        return decorator
 
 
-def openapi_ready(f):
-    """
-    The openapi generation needs to be able to call some methods on the viewset
-    without a user on the request (or AnonymousUser being on it). drf_yasg sets
-    the swagger_fake_view attr on the view when running these methods, so we can
-    check for that and call the super method if it's present.  This does mean
-    that the super method output still has to makes sense for the docs you're trying
-    to generate.
-    """
+def encode_uid(pk: str) -> str:
+    """Encode uid"""
+    return force_str(urlsafe_base64_encode(force_bytes(pk)))
 
-    @functools.wraps(f)
-    def wrapped(self, *args, **kwargs):
-        """
-        it's simply getting the super
-        class, dynamically getattring the method from it and calling that
-        method with the args passed to f
-        """
-        if getattr(self, "swagger_fake_view", False):
 
-            return getattr(super(self.__class__, self), f.__name__)(*args, **kwargs)
-        else:
-            return f(self, *args, **kwargs)
-
-    return wrapped
+def decode_uid(pk: str) -> str:
+    """Decode uid"""
+    return force_str(urlsafe_base64_decode(pk))
 
 
 def query_debugger(func):

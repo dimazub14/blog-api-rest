@@ -1,12 +1,15 @@
 """
 Base settings to build other settings files upon.
 """
+from collections import OrderedDict
 from datetime import timedelta
+from decimal import Decimal
 from typing import Any, Dict, List
 
 import environ
+from celery.schedules import crontab
 
-ROOT_DIR = environ.Path(__file__) - 3
+ROOT_DIR = environ.Path(__file__) - 3  # (backend_meta/config/settings/base.py - 3 = backend_meta/)
 APPS_DIR = ROOT_DIR.path("apps")
 
 env = environ.Env()
@@ -24,7 +27,7 @@ DEBUG = env.bool("DJANGO_DEBUG", False)
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # though not all of them may be available with every OS.
 # In Windows, this must be set to your system time zone.
-TIME_ZONE = "UTC"
+TIME_ZONE = "EET"
 # https://docs.djangoproject.com/en/dev/ref/settings/#language-code
 
 
@@ -36,9 +39,6 @@ def gettext(s: str) -> str:
 LANGUAGES = (
     ("en", gettext("English")),
     ("ru", gettext("Russian")),
-    ("es", gettext("Spanish")),
-    ("de", gettext("German")),
-    ("uk", gettext("Ukrainian")),
 )
 
 LANGUAGE_CODE = "en-us"
@@ -47,7 +47,9 @@ SITE_ID = 1
 # https://docs.djangoproject.com/en/dev/ref/settings/#use-i18n
 USE_I18N = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#use-l10n
-USE_L10N = True
+DATETIME_INPUT_FORMATS = [
+    "%Y-%m-%d %H:%M",  # '2006-10-25 14:30'
+]
 # https://docs.djangoproject.com/en/dev/ref/settings/#use-tz
 USE_TZ = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#locale-paths
@@ -57,7 +59,7 @@ LOCALE_PATHS = [ROOT_DIR.path("locale")]
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
 DATABASES = {"default": env.db("DATABASE_URL")}
-DATABASES["default"]["ATOMIC_REQUESTS"] = True
+DATABASES["default"]["ATOMIC_REQUESTS"] = False
 
 # URLS
 # ------------------------------------------------------------------------------
@@ -79,21 +81,22 @@ DJANGO_APPS = [
     "django.contrib.admin",
 ]
 THIRD_PARTY_APPS = [
-    "rest_framework",
     "health_check",  # required
     "health_check.db",  # stock Django health checkers
     "health_check.cache",
     "health_check.contrib.psutil",  # disk and memory utilization; requires psutil
     # "health_check.contrib.redis",  # required Redis broker
     "corsheaders",
-    "django_filters",
-    "django_extensions",
+    "drf_spectacular",
+    "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
+    "rest_framework.authtoken",
+    "django_celery_beat",
 ]
 
 HEALTH_CHECK = {"DISK_USAGE_MAX": None}
 
 LOCAL_APPS = [
-
 ]  # type: List[Any]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -101,7 +104,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 # MIGRATIONS
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#migration-modules
-MIGRATION_MODULES: Dict[str, Any] = {}
+MIGRATION_MODULES = {"sites": "apps.contrib.sites.migrations"}
 
 # AUTHENTICATION
 # ------------------------------------------------------------------------------
@@ -121,9 +124,7 @@ PASSWORD_HASHERS = [
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"  # noqa
-    },
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},  # noqa
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -145,10 +146,22 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+# Redis
+# ------------------------------------------------------------------------------
+REDIS_URL = env("REDIS_URL")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+    }
+}
+
 # STATIC
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#static-root
-STATIC_ROOT = str(ROOT_DIR("static"))
+STATIC_ROOT = str(ROOT_DIR("staticfiles"))
 # https://docs.djangoproject.com/en/dev/ref/settings/#static-url
 STATIC_URL = "/static/"
 # https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#std:setting-STATICFILES_DIRS
@@ -221,12 +234,17 @@ X_FRAME_OPTIONS = "DENY"
 # ADMIN
 # ------------------------------------------------------------------------------
 # Django Admin URL.
-ADMIN_URL = env("DJANGO_ADMIN_URL", default="admin/")
+ADMIN_URL = "admin/"
 # https://docs.djangoproject.com/en/dev/ref/settings/#admins
 ADMINS = []  # type: List[Any]
 # https://docs.djangoproject.com/en/dev/ref/settings/#managers
 MANAGERS = ADMINS
 DISABLE_ADMIN_PANEL = env.bool("DISABLE_ADMIN_PANEL", False)
+
+# User
+# ------------------------------------------------------------------------------
+
+# AUTH_USER_MODEL = "users.User"
 
 # LOGGING
 # ------------------------------------------------------------------------------
@@ -236,12 +254,7 @@ DISABLE_ADMIN_PANEL = env.bool("DISABLE_ADMIN_PANEL", False)
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "%(levelname)s %(asctime)s %(module)s "
-            "%(process)d %(thread)d %(message)s"
-        }
-    },
+    "formatters": {"verbose": {"format": "%(levelname)s %(asctime)s %(module)s " "%(process)d %(thread)d %(message)s"}},
     "handlers": {
         "console": {
             "level": "DEBUG",
@@ -257,11 +270,11 @@ LOGGING = {
 # -------------------------------------------------------------------------------
 # django-rest-framework - https://www.django-rest-framework.org/api-guide/settings/
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    ),
-    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.AllowAny",),
-    "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.ScopedRateThrottle"],
+    "DEFAULT_AUTHENTICATION_CLASSES": ("apps.users.auth_middleware.CustomJWTAuthentication",),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
+    "PAGE_SIZE": 100,
 }
 
 # rest_framework_simplejwt
@@ -269,6 +282,8 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(hours=3),
     "ROTATE_REFRESH_TOKENS": True,
+    "USER_ID_FIELD": "pk",
+    "ALGORITHM": "HS256",
 }
 
 REST_USE_JWT = True
@@ -280,17 +295,20 @@ CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS")
 
-
-# Swagger
+# DRF SPECTACULAR
 # ------------------------------------------------------------------------------
-SWAGGER_ENABLED = env.bool("SWAGGER_ENABLED", default=0)
-if SWAGGER_ENABLED:
-    INSTALLED_APPS += ["drf_spectacular"]  # noqa F405
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Meta Land API",
+    "DESCRIPTION": "",
+    "VERSION": "1.0.0",
+}
 
-    SPECTACULAR_SETTINGS = {
-        "TITLE": "CONFIG-SERVICE API",
-        "DESCRIPTION": "Test description",
-        "VERSION": "1.0.0",
-        # OTHER SETTINGS
-    }
-    REST_FRAMEWORK["DEFAULT_SCHEMA_CLASS"] = "drf_spectacular.openapi.AutoSchema"
+# CELERY
+# ------------------------------------------------------------------------------
+CELERY_BROKER_URL = env("CELERY_BROKER_URL")
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+CELERY_TASK_DEFAULT_QUEUE = env("CELERY_TASK_DEFAULT_QUEUE")
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+CELERY_BEAT_SCHEDULE: Dict[str, Any] = {}
+
+CELERY_TACKS_LATE = True

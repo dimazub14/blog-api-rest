@@ -10,11 +10,11 @@ services:
     build:
       context: .
       dockerfile: ./etc/Dockerfile
-      args:
-        - ENV=local
-    image: am_local_django
+    image: meta_backend_local_django
+    user: root
     depends_on:
       - postgres
+      - redis
     volumes:
       - .:/app
     env_file:
@@ -22,7 +22,7 @@ services:
       - ./.envs/.local/.postgres
     ports:
       - "8080:8080"
-    command: /bin/sh -c "python manage.py collectstatic --noinput && python manage.py migrate && python manage.py runserver_plus 0.0.0.0:8080"
+    command: /bin/sh -c "python manage.py runserver_plus 0.0.0.0:8080"
 
   postgres:
     image: postgres:11-alpine
@@ -32,4 +32,31 @@ services:
     env_file:
       - ./.envs/.local/.postgres
     ports:
-      - "5437:5432"
+      - "5435:5432"
+
+  redis:
+    image: redis:6.2-alpine
+    volumes:
+      - local_redis_data:/data
+
+  celeryworker:
+    <<: *django
+    image: backend_meta_local_celeryworker
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - .:/app:z
+    ports: [ ]
+    command: celery -A config.celery worker -l INFO
+
+  celerybeat:
+    <<: *django
+    image: backend_meta_local_celerybeat
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - .:/app:z
+    ports: [ ]
+    command: celery -A config.celery beat -l INFO

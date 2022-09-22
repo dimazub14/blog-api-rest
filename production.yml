@@ -4,43 +4,58 @@ volumes:
   local_postgres_data: {}
   local_postgres_data_backups: {}
   local_redis_data: {}
-  socket_volume: {}
 
 services:
   django: &django
     build:
       context: .
       dockerfile: ./etc/Dockerfile
-    image: confi_service_django
-    depends_on:
-      - postgres
+      args:
+        ENV: production
+    image: backend_meta_django
     volumes:
       - .:/app
-      - socket_volume: /tmp/socket
-      - ./media:/app/media
-      - ./static:/app/static
+    ports:
+      - "8080:8080"
     env_file:
-      - ./.envs/.production/.django
-      - ./.envs/.production/.postgres
-    command: /bin/sh -c "python manage.py collectstatic --noinput && python manage.py migrate && uwsgi --stats /tmp/stats.socket --socket /tmp/django.sock --master --max-requests 5000 --chmod-socket --disable-logging --disable-write-exception -w 'config.wsgi:application' --enable-threads --harakiri 60 --cheaper-algo busyness --processes 500 --cheaper 8 --cheaper-overload 1 --cheaper-step 16"
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    command: /bin/sh -c "python manage.py collectstatic --noinput && python manage.py migrate && uwsgi --ini uwsgi.ini"
 
   postgres:
     image: postgres:11-alpine
     volumes:
-      - local_postgres_data: /var/lib/postgresql/data
-      - local_postgres_data_backups: /backups
+      - local_postgres_data:/var/lib/postgresql/data
+      - local_postgres_data_backups:/backups
     env_file:
       - ./.envs/.local/.postgres
+
+  redis:
+    image: redis:6.2-alpine
+    volumes:
+      - local_redis_data:/data
 
   nginx:
     image: nginx:1.17-alpine
     container_name: nginx
     volumes:
       - ./etc/nginx/conf.d:/etc/nginx/conf.d:ro
-      - socket_volume: /tmp/socket
-      - ./static:/var/www/static
-      - ./media:/var/www/media
     ports:
       - "80:80"
+
+  celeryworker:
+    <<: *django
+    container_name: celeryworker
     depends_on:
-      - django
+      - redis
+    ports: [ ]
+    command: celery -A config.celery worker -l INFO
+
+  celerybeat:
+    <<: *django
+    container_name: celerybeat
+    depends_on:
+      - redis
+    ports: [ ]
+    command: celery -A config.celery beat -l INFO
+
