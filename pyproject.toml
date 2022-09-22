@@ -13,3 +13,10 @@ verbose = 2
 quiet = false
 whitelist-regex = []
 color = true
+
+
+[tool.black]
+line-length = 120
+target-version = ['py39']
+include = '\.pyi?$'
+exclude = ["*.migrations.*"]

@@ -7,13 +7,6 @@ fail_fast: true
 repos:
   - repo: local
     hooks:
-      - id: seed-isort-config
-        name: seed-isort-config
-        stages: [commit]
-        language: system
-        pass_filenames: false
-        entry: seed-isort-config
-        types: [python]
       - id: removestar
         name: removestar
         stages: [commit]
@@ -26,6 +19,7 @@ repos:
         language: system
         entry: isort
         types: [python]
+        args: ["--profile", "black"]
       - id: black
         name: black
         stages: [commit]
@@ -45,18 +39,24 @@ repos:
         entry: interrogate apps/ -I -M
         types: [python]
         args: [--config=pyproject.toml]
-      - id: bandit
-        name: bandit
-        stages: [ commit ]
-        language: system
-        entry: bandit -r apps --ini=.bandit
-        types: [ python ]
-        pass_filenames: false
       - id: dodgy
         name: dodgy
         stages: [ commit ]
         language: system
         entry: dodgy
+        types: [ python ]
+        pass_filenames: false
+      - id: pylint
+        name: pylint
+        stages: [commit]
+        language: system
+        entry: pylint apps
+        types: [python]
+      - id: bandit
+        name: bandit
+        stages: [ commit ]
+        language: system
+        entry: bandit -r apps --ini=.bandit
         types: [ python ]
         pass_filenames: false
       - id: mypy
@@ -66,12 +66,7 @@ repos:
         entry: bash -c 'PYTHONPATH="$PYTHONPATH:$PWD" mypy'
         types: [ python ]
         pass_filenames: false
-      - id: pylint
-        name: pylint
-        stages: [commit]
-        language: system
-        entry: pylint apps
-        types: [python]
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.0.1
     hooks:

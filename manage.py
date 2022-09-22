@@ -23,7 +23,7 @@ if __name__ == "__main__":
         raise
 
     # This allows easy placement of apps within the interior
-    # am-backend directory.
+    # web-stacking-backend directory.
     current_path = os.path.dirname(os.path.abspath(__file__))
     sys.path.append(os.path.join(current_path, "apps"))
 

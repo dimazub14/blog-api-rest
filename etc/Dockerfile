@@ -23,10 +23,8 @@ COPY ./requirements requirements
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 # local or production
-ARG ENV
-ENV ENV=$ENV
-RUN pip install -U pip \
-    && pip install wheel && pip install --no-cache-dir -r requirements/$ENV.txt
+ARG ENV=local
+RUN pip install -U pip && pip install wheel && pip install --no-cache-dir -r requirements/$ENV.txt
 FROM python:3.9-slim AS build-image
 RUN apt update \
     \
@@ -41,11 +39,12 @@ RUN apt update \
     libgmp3-dev \
     libsecp256k1-dev \
     gettext \
-    git \
-    screen
+    git
 RUN groupadd -r -g 1001 app && useradd -r -u 1001 -g app app
 USER app
 COPY --chown=app:app --from=compile-image /opt/venv /opt/venv
 COPY --chown=app:app . /app
+COPY --chown=app:app /config /app/config
+
 WORKDIR /app
 ENV PATH="/opt/venv/bin:$PATH"

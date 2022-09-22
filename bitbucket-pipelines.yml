@@ -1,0 +1,90 @@
+definitions:
+  services:
+    docker:
+      memory: 4096
+  steps:
+    - step: &build-deploy
+        oidc: true ENVIRONMENT_DOCKER
+        name: Build and Deploy
+        script:
+            # deletes the 3 next lines excluding the matched pattern `postgres:11-alpine`
+          - sed -i -e '/postgres:11-alpine/{n;N;N;d}' local.yml
+          - sed -i -e '/redis:6.2-alpine/{n;N;d}' local.yml
+
+          - pip install docker-compose
+          - pip install awscli
+          - docker build -f ./etc/Dockerfile -t $AWS_ECR_REPOSITORY --build-arg ENV=$ENVIRONMENT_DOCKER .
+          - docker tag $AWS_ECR_REPOSITORY meta_backend_local_django:latest
+          - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ECR_URI
+          - docker-compose -f local.yml run django /bin/bash -c "pip3 install -r /app/requirements/local.txt"
+          - docker commit $(docker ps -aqf "ancestor=meta_backend_local_django:latest") meta_backend_local_django
+          - make down
+          - pipe: "atlassian/aws-ecr-push-image:1.4.2"
+            variables:
+                AWS_OIDC_ROLE_ARN: ${AWS_OIDC_ROLE_ARN}
+                AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+                IMAGE_NAME: ${AWS_ECR_REPOSITORY}
+                DEBUG: "true"
+#          - pipe: atlassian/scp-deploy:1.1.0
+#            variables:
+#              USER: ${USER}
+#              SERVER: ${SERVER_IP}
+#              REMOTE_PATH: ${REMOTE_PATH}
+#              LOCAL_PATH: '${BITBUCKET_CLONE_DIR}/etc/'
+#          - pipe: "atlassian/ssh-run:0.3.0"
+#            variables:
+#                SSH_USER: ${USER}
+#                SERVER: ${SERVER_IP}
+#                MODE: 'script'
+#                COMMAND: "deploy.sh"
+#                ENV_VARS: >-
+#                  AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+#                  AWS_ECR_URI=${AWS_ECR_URI}
+#                  AWS_ECR_REPOSITORY=${AWS_ECR_REPOSITORY}
+#                  BITBUCKET_BUILD_NUMBER=${BITBUCKET_BUILD_NUMBER}
+#                  AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+#                  AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+#                  PARAMETER=${PARAMETER_STORE}
+#                  IMAGE_TAG=${IMAGE_TAG}
+#                  REMOTE_PATH=${REMOTE_PATH}
+#                  CLUSTER_BUCKET=${CLUSTER_BUCKET}
+#                  FILE_TRANSFER_BUCKET=${FILE_TRANSFER_BUCKET}
+#                  FILE_TRANSFER_EXE_NAME=${FILE_TRANSFER_EXE_NAME}
+#                  CLUSTER_EXE_NAME=${CLUSTER_EXE_NAME}
+#                  INSTALLER_DIR=${INSTALLER_DIR}
+#                  ENV=${ENV}
+
+#    - step: &semgrep
+#        name: Semgrep Findings to S3
+#        image:
+#          name: 325903710924.dkr.ecr.ap-southeast-1.amazonaws.com/pipeline-images:1.0.0
+#          aws:
+#            access-key: $AWS_ACCESS_KEY_ID
+#            secret-key: $AWS_SECRET_ACCESS_KEY
+#        script:
+#          - docker run --rm -v $(pwd):/src --workdir /src returntocorp/semgrep-agent:v1 semgrep-agent --config r/all  --gitlab-json > semgrep.json || true
+#          - aws s3 cp semgrep.json ${SEMGREP_BUCKET}/${BITBUCKET_REPO_FULL_NAME}/${BITBUCKET_BRANCH}_${BITBUCKET_COMMIT::7}.json
+#        services:
+#          - docker
+
+image: python:3.9
+options:
+  docker: true
+  size: 2x
+pipelines:
+  branches:
+#    develop:
+#    - step:
+#        <<: *build-deploy
+#        deployment: Test
+#        services:
+#          - docker
+#    master:
+#    - step:
+#        <<: *build-deploy
+#        deployment: Production
+
+#  pull-requests:   #Pull reuest enable to trigger pipeline on master branch
+#    '**':
+#      - step:
+#          <<: *semgrep

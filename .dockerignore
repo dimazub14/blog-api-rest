@@ -12,3 +12,4 @@ celerybeat.pid
 etc/*
 !etc/Dockerfile
 __pycache__
+venv

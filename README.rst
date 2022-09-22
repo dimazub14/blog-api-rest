@@ -1,11 +1,9 @@
+.. web-stacking-backend
 .. README.rst
 
 
-Config-service documentation
+Web Stacking backend service documentation
 ======================================
-
-    *config-service is a service with setting for services*
-
 .. contents::
 
 Local development bootstrap
