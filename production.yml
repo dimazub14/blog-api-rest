@@ -1,10 +1,5 @@
 version: '3'
 
-volumes:
-  local_postgres_data: {}
-  local_postgres_data_backups: {}
-  local_redis_data: {}
-
 services:
   django: &django
     build:
@@ -12,15 +7,18 @@ services:
       dockerfile: ./etc/Dockerfile
       args:
         ENV: production
-    image: backend_meta_django
+    image: change_me_django
+    depends_on:
+      - postgres
     volumes:
       - .:/app
+      - socket_volume:/socket
     ports:
       - "8080:8080"
     env_file:
-      - ./.envs/.local/.django
-      - ./.envs/.local/.postgres
-    command: /bin/sh -c "python manage.py collectstatic --noinput && python manage.py migrate && uwsgi --ini uwsgi.ini"
+      - ./.envs/.production/.django
+      - ./.envs/.production/.postgres
+    command: /bin/sh -c "python manage.py collectstatic --noinput && python manage.py migrate && uwsgi --socket /socket/django.sock --master --max-requests 5000 --chmod-socket --disable-logging --disable-write-exception -w 'config.wsgi:application' --enable-threads --harakiri 60 --cheaper-algo busyness --processes 500 --cheaper 8 --cheaper-overload 1 --cheaper-step 16"
 
   postgres:
     image: postgres:11-alpine
@@ -28,34 +26,22 @@ services:
       - local_postgres_data:/var/lib/postgresql/data
       - local_postgres_data_backups:/backups
     env_file:
-      - ./.envs/.local/.postgres
-
-  redis:
-    image: redis:6.2-alpine
-    volumes:
-      - local_redis_data:/data
+      - ./.envs/.production/.postgres
 
   nginx:
-    image: nginx:1.17-alpine
+    build:
+      context: ./etc/nginx
+      dockerfile: Dockerfile
+      args:
+        BACKEND_URL: localhost
     container_name: nginx
     volumes:
-      - ./etc/nginx/conf.d:/etc/nginx/conf.d:ro
+      - socket_volume:/socket
     ports:
       - "80:80"
 
-  celeryworker:
-    <<: *django
-    container_name: celeryworker
-    depends_on:
-      - redis
-    ports: [ ]
-    command: celery -A config.celery worker -l INFO
-
-  celerybeat:
-    <<: *django
-    container_name: celerybeat
-    depends_on:
-      - redis
-    ports: [ ]
-    command: celery -A config.celery beat -l INFO
-
+volumes:
+  local_postgres_data: {}
+  local_postgres_data_backups: {}
+  local_redis_data: {}
+  socket_volume: {}
