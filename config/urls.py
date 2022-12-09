@@ -9,7 +9,6 @@ urlpatterns = [
 
 # API URLS
 urlpatterns += [
-    # API base url
     path("api/v1/", include("config.api_router")),
 ]
 

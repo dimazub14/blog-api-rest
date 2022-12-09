@@ -3,7 +3,7 @@
 Werkzeug==2.0.3 # https://github.com/pallets/werkzeug
 ipdb  # https://github.com/gotcha/ipdb
 Sphinx  # https://github.com/sphinx-doc/sphinx
-psycopg2 --no-binary psycopg2  # https://github.com/psycopg/psycopg2
+psycopg2==2.9.5 --no-binary psycopg2  # https://github.com/psycopg/psycopg2
 
 # Testing
 # ------------------------------------------------------------------------------

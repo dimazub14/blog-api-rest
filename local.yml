@@ -14,7 +14,6 @@ services:
     user: root
     depends_on:
       - postgres
-      - redis
     volumes:
       - .:/app
     env_file:
@@ -33,30 +32,3 @@ services:
       - ./.envs/.local/.postgres
     ports:
       - "5435:5432"
-
-  redis:
-    image: redis:6.2-alpine
-    volumes:
-      - local_redis_data:/data
-
-  celeryworker:
-    <<: *django
-    image: backend_meta_local_celeryworker
-    depends_on:
-      - redis
-      - postgres
-    volumes:
-      - .:/app:z
-    ports: [ ]
-    command: celery -A config.celery worker -l INFO
-
-  celerybeat:
-    <<: *django
-    image: backend_meta_local_celerybeat
-    depends_on:
-      - redis
-      - postgres
-    volumes:
-      - .:/app:z
-    ports: [ ]
-    command: celery -A config.celery beat -l INFO

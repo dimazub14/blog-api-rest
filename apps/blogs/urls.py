@@ -1,12 +1,11 @@
 # Create your urls here.
 from django.urls import path
-from apps.blog.views import BlogView
+from apps.blogs import views
+
 app_name = "blogs"
 
 urlpatterns = [
-    path('blogs/', BlogView.as_view()),
-    path('blogs/<int:pk>', BlogView.as_view()),
-    path('comments/', CommentList.as_view()),
-    path('comments/<int:pk>/', CommentDetail.as_view()),
+    path('blogs/', views.BlogsListAPIView.as_view()),
+
 ]
-urlpatterns = format_suffix_patterns(urlpatterns)
+# urlpatterns = format_suffix_patterns(urlpatterns)

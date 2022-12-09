@@ -2,58 +2,38 @@ from django.shortcuts import render
 
 # Create your views here.
 from rest_framework.response import Response
+from django_filters import rest_framework as filters
 from rest_framework.views import APIView
-from .models import Blog
-from .serializers import BlogSerializer
+from .models import Blog, Author, CustomUser
 from rest_framework.generics import get_object_or_404
-from apps.blog.models import Comment
-from rest_framework import generics
-from django.core import serializers as core_serializers
-from apps.blog.serializers import BlogSerializer
+from apps.blogs.models import Comment, Tag
+from rest_framework import generics, status, permissions
+from apps.blogs.serializers import BlogCommentTagSerializer
+from django.db.models import Prefetch, Count
+from apps.blogs.filters import BlogFilter
+from rest_framework.pagination import PageNumberPagination
 
 
-class BlogView(APIView):
-
-    def get(self, request):
-        blogs = Blog.objects.all()
-        serializer = BlogSerializer(blogs, many=True)
-        return Response({"blogs": serializer.data})
-
-    def post(self, request):
-        blog = request.data.get('blogs')
-        serializer = BlogSerializer(data=blog)
-        if serializer.is_valid(raise_exception=True):
-            blog_saved = serializer.save()
-        return Response({"success": "Blog '{}' created successfully"
-                        .format(blog_saved.title)})
-
-    def put(self, request, pk):
-        saved_blog = get_object_or_404(Blog.objects.all(), pk=pk)
-        data = request.data.get('Blogs')
-        serializer = BlogSerializer(instance=saved_blog, data=data, partial=True)
-        if serializer.is_valid(raise_exception=True):
-            blog_saved = serializer.save()
-        return Response({
-            "success": "Article '{}' updated successfully".format(blog_saved.title)
-        })
-
-    def delete(self, request, pk):
-        # Get object with this pk
-        blog = get_object_or_404(Blog.objects.all(), pk=pk)
-        blog.delete()
-        return Response({
-            "message": "Article with id `{}` has been deleted.".format(pk)
-        }, status=204)
+class BlogsListAPIViewPagination(PageNumberPagination):
+    page_size = 2
+    max_page_size = 10000
 
 
-class CommentList(generics.ListCreateAPIView):
-    queryset = Comment.objects.all()
-    serializer_class = core_serializers.CommentSerializer
+class BlogsListAPIView(generics.ListAPIView):
+    queryset = Blog.objects.prefetch_related("comments", "tags").select_related("author")
+    serializer_class = BlogCommentTagSerializer
+    permission_classes = [permissions.AllowAny]
+    filter_backends = (filters.DjangoFilterBackend,)
+    # pagination_class = BlogsListAPIViewPagination
+    filterset_class = BlogFilter
 
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
 
+    def get(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
 
-class CommentDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Comment.objects.all()
-    serializer_class = core_serializers.CommentSerializer
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)

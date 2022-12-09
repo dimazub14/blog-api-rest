@@ -1,36 +1,41 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from apps.blog.models import Comment
+from apps.blogs.models import Comment, Author, Blog, CustomUser, Tag
 
 
-class BlogSerializer(serializers.Serializer):
-    title = serializers.CharField(max_length=120)
-    description = serializers.CharField()
-    body = serializers.CharField()
-    author_id = serializers.IntegerField()
+class AuthorSerializer(serializers.ModelSerializer):
 
-    def create(self, validated_data):
-        return Blog.objects.create(**validated_data)
-
-    def update(self, instance, validated_data):
-        '''we pass the value to instance'''
-        instance.title = validated_data.get('title', instance.title)
-        instance.description = validated_data.get('description', instance.description)
-        instance.body = validated_data.get('body', instance.body)
-        instance.author_id = validated_data.get('author_id', instance.author_id)
-        instance.save()
-        return instance
-
-
-class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
-        fields = ['id', 'username']
+        model = Author
+        fields = '__all__'
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    author = UserSerializer()
 
     class Meta:
         model = Comment
-        fields = '__all__'
+        fields = "__all__"
+
+
+class TagSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Tag
+        fields = ["id", "name"]
+
+
+class BlogCommentTagSerializer(serializers.ModelSerializer):
+    comments = CommentSerializer(many=True)
+    author = AuthorSerializer()
+    tags = TagSerializer(many=True)
+
+    class Meta:
+        model = Blog
+        fields = "__all__" # Remove field body
+
+
+
+
+
+
+

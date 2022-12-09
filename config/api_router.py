@@ -11,4 +11,5 @@ app_name = "api"
 urlpatterns = router.urls
 
 urlpatterns += [
+    path('blogs/', include('apps.blogs.urls', namespace='blogs_api')),
 ]
